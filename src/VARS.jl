@@ -9,6 +9,7 @@ include("utils.jl")
 include("sampling.jl")
 include("analysis.jl")
 include("gvars.jl")
+include("api.jl") # <-- ADD THIS LINE
 
 # Export user functions
 export generate_vars_samples, vars_analyse
