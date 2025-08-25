@@ -1,124 +1,144 @@
-# src/analysis.jl
-
-using Statistics, Combinatorics
+using Statistics, Combinatorics, Distributions
 
 """
-    vars_analyse(Y::Vector, info::Vector, N::Int, d::Int, delta_h::Float64)
-
-Performs standard VARS analysis for independent, uniform parameters.
+Helper to get the min/max bounds for each parameter for normalization.
 """
-function vars_analyse(Y::Vector, info::Vector, N::Int, d::Int, delta_h::Float64)
-    centre_indices = findall(p -> p.dim_id == 0, info)
-    if length(centre_indices) < 2 error("Not enough star centre outputs to compute variance.") end
-    VY = var(Y[centre_indices])
-    if VY < 1e-12 return (ST = zeros(d),) end
+function _get_param_bounds(parameters::OrderedDict)
+    d = length(parameters)
+    xmin = zeros(d)
+    xmax = zeros(d)
+    param_defs = collect(values(parameters))
+
+    for i in 1:d
+        p = param_defs[i]
+        dist_type = p.dist
+        if dist_type == "unif" || dist_type == "triangle"
+            xmin[i], xmax[i] = p.p1, p.p2
+        elseif dist_type == "norm"
+            # Use 3-sigma rule as in the python code
+            xmin[i] = p.p1 - 3 * p.p2
+            xmax[i] = p.p1 + 3 * p.p2
+        else
+            # Fallback for other distributions: estimate from a large sample
+            dist, _, _ = VARS._get_distribution_and_stats(p)
+            q_low = quantile(dist, 0.001)
+            q_high = quantile(dist, 0.999)
+            xmin[i], xmax[i] = q_low, q_high
+        end
+    end
+    return xmin, xmax
+end
+
+
+"""
+    vars_analyse(...) - CORRECTED
+
+Standard VARS analysis. Pairing logic now matches python's step-based approach.
+"""
+function vars_analyse(Y::Vector, info::Vector{NamedTuple{(:star_id, :dim_id, :step_id, :h), Tuple{Int, Int, Int, Float64}}}, N::Int, d::Int, delta_h::Float64)
+    VY = var(Y)
+    if VY < 1e-12
+        return (ST = zeros(d),)
+    end
 
     ST = zeros(d)
     for dim in 1:d
-        gamma_sum = 0.0
-        ecov_sum = 0.0
-        stars_with_data = 0
-        for star in 1:N
-            traj_indices = findall(p -> p.star_id == star && p.dim_id == dim, info)
-            star_centre_idx = findfirst(p -> p.star_id == star && p.dim_id == 0, info)
-            if isempty(traj_indices) || isnothing(star_centre_idx) continue end
+        gamma_sum, ecov_sum, stars_with_data = 0.0, 0.0, 0
 
-            leg_points_Y = Y[traj_indices]
-            leg_points_info = info[traj_indices]
-            star_bin_pairs = Tuple{Float64, Float64}[]
-            for (i, j) in combinations(1:length(leg_points_Y), 2)
-                actual_h = abs(leg_points_info[i].h - leg_points_info[j].h)
-                if isapprox(actual_h, delta_h, atol=1e-9)
-                    push!(star_bin_pairs, (leg_points_Y[i], leg_points_Y[j]))
+        for star in 1:N
+            ray_indices = findall(p -> p.star_id == star && (p.dim_id == dim || p.dim_id == 0), info)
+            if length(ray_indices) < 2 continue end
+            
+            sort!(ray_indices, by = idx -> info[idx].step_id)
+            
+            one_step_pairs = Tuple{Float64, Float64}[]
+            for k in 1:(length(ray_indices) - 1)
+                idx1 = ray_indices[k]
+                idx2 = ray_indices[k+1]
+                if abs(info[idx1].step_id - info[idx2].step_id) == 1
+                    push!(one_step_pairs, (Y[idx1], Y[idx2]))
                 end
             end
 
-            if isempty(star_bin_pairs) continue end
+            if isempty(one_step_pairs) continue end
 
-            p1 = [p[1] for p in star_bin_pairs]
-            p2 = [p[2] for p in star_bin_pairs]
+            p1 = [p[1] for p in one_step_pairs]
+            p2 = [p[2] for p in one_step_pairs]
+
             gamma_i = 0.5 * mean((p1 .- p2).^2)
-            full_traj_Y = vcat(leg_points_Y, Y[star_centre_idx])
-            mu_star = mean(full_traj_Y)
+            
+            y_ray_values = Y[findall(p -> p.star_id == star && p.dim_id == dim, info)]
+            mu_star = isempty(y_ray_values) ? 0.0 : mean(y_ray_values)
+
             ecov_i = mean((p1 .- mu_star) .* (p2 .- mu_star))
 
-            if !isnan(gamma_i) && !isnan(ecov_i)
-                gamma_sum += gamma_i
-                ecov_sum += ecov_i
-                stars_with_data += 1
-            end
+            gamma_sum += gamma_i
+            ecov_sum += ecov_i
+            stars_with_data += 1
         end
 
-        if stars_with_data > 0
-            avg_gamma = gamma_sum / stars_with_data
-            avg_ecov = ecov_sum / stars_with_data
-            ST[dim] = (avg_gamma + avg_ecov) / VY
-        else
-            ST[dim] = NaN
-        end
+        ST[dim] = stars_with_data > 0 ? (gamma_sum / stars_with_data + ecov_sum / stars_with_data) / VY : NaN
     end
-    return (ST = ST,)
+    return (ST=ST,)
 end
 
-"""
-    gvars_analyse(Y::Vector, X_norm::Matrix, info::Vector, N::Int, d::Int, delta_h::Float64)
 
-Performs G-VARS analysis for correlated and/or non-uniform parameters.
 """
-function gvars_analyse(Y::Vector, X_norm::Matrix, info::Vector, N::Int, d::Int, delta_h::Float64)
-    centre_indices = findall(p -> p.dim_id == 0, info)
-    if length(centre_indices) < 2 error("Not enough star centre outputs to compute variance.") end
-    VY = var(Y[centre_indices])
-    if VY < 1e-12 return (ST = zeros(d),) end
+    gvars_analyse(...) - FINAL VERSION
+
+Replicates the Python tool's complex binning logic for G-VARS analysis.
+"""
+function gvars_analyse(Y::Vector, X::Matrix, info::Vector{NamedTuple{(:star_id, :dim_id, :step_id, :h), Tuple{Int, Int, Int, Float64}}}, N::Int, d::Int, delta_h::Float64, parameters::OrderedDict)
+    VY = var(Y)
+    if VY < 1e-12
+        return (ST = zeros(d),)
+    end
+
+    xmin, xmax = _get_param_bounds(parameters)
+    param_ranges = xmax .- xmin
 
     ST = zeros(d)
     for dim in 1:d
-        gamma_sum = 0.0
-        ecov_sum = 0.0
-        stars_with_data = 0
+        gamma_sum, ecov_sum, stars_with_data = 0.0, 0.0, 0
+
         for star in 1:N
             ray_indices = findall(p -> p.star_id == star && (p.dim_id == dim || p.dim_id == 0), info)
             if length(ray_indices) < 2 continue end
 
-            star_bin_pairs = Tuple{Float64, Float64}[]
-            for (i, j) in combinations(1:length(ray_indices), 2)
-                idx1 = ray_indices[i]
-                idx2 = ray_indices[j]
+            # Collect pairs that fall into the delta_h bin based on normalized distance
+            binned_pairs = Tuple{Float64, Float64}[]
+            for (idx1, idx2) in combinations(ray_indices, 2)
+                # Calculate normalized distance in the original parameter space
+                dist = abs(X[dim, idx1] - X[dim, idx2])
+                norm_dist = param_ranges[dim] > 1e-9 ? dist / param_ranges[dim] : 0.0
                 
-                if info[idx1].dim_id == 0 || info[idx2].dim_id == 0
-                    continue
-                end
-
-                actual_h = abs(X_norm[dim, idx1] - X_norm[dim, idx2])
-                if 0 < actual_h <= delta_h
-                    push!(star_bin_pairs, (Y[idx1], Y[idx2]))
+                # Python's binning logic: bin index is floor(norm_dist / delta_h)
+                # The target bin for ST is the first one, corresponding to h=delta_h.
+                # The python code's binning is a bit tricky, but this logic should be equivalent
+                # for the first bin: 0 < norm_dist <= delta_h
+                if 0 < norm_dist <= delta_h
+                    push!(binned_pairs, (Y[idx1], Y[idx2]))
                 end
             end
 
-            if isempty(star_bin_pairs) continue end
+            if isempty(binned_pairs) continue end
 
-            p1 = [p[1] for p in star_bin_pairs]
-            p2 = [p[2] for p in star_bin_pairs]
+            p1 = [p[1] for p in binned_pairs]
+            p2 = [p[2] for p in binned_pairs]
+
             gamma_i = 0.5 * mean((p1 .- p2).^2)
-            mu_star = mean(Y[ray_indices])
+            
+            y_ray_values = Y[findall(p -> p.star_id == star && p.dim_id == dim, info)]
+            mu_star = isempty(y_ray_values) ? 0.0 : mean(y_ray_values)
+
             ecov_i = mean((p1 .- mu_star) .* (p2 .- mu_star))
 
-            if !isnan(gamma_i) && !isnan(ecov_i)
-                gamma_sum += gamma_i
-                ecov_sum += ecov_i
-                stars_with_data += 1
-            end
+            gamma_sum += gamma_i
+            ecov_sum += ecov_i
+            stars_with_data += 1
         end
 
-        if stars_with_data == 0
-            @warn "No valid pairs found in the first bin (h <= $delta_h) for dimension $dim. Sensitivity index will be NaN."
-            ST[dim] = NaN
-            continue
-        end
-
-        avg_gamma = gamma_sum / stars_with_data
-        avg_ecov = ecov_sum / stars_with_data
-        ST[dim] = (avg_gamma + avg_ecov) / VY
+        ST[dim] = stars_with_data > 0 ? (gamma_sum / stars_with_data + ecov_sum / stars_with_data) / VY : NaN
     end
-    return (ST = ST,)
+    return (ST=ST,)
 end
