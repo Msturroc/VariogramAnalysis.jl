@@ -9,7 +9,6 @@ using Statistics
 using LinearAlgebra
 using Printf
 using PyCall
-
 println("--- VARS Analysis (Independent/Uniform): Julia vs. Python vs. Analytical ---")
 
 # --- Python Environment Setup and Helper Function ---
@@ -44,17 +43,30 @@ try
         pairs = pairs_h(df_reset.index)
         df_values = df_reset.to_numpy()
         
-        # This dict comprehension can be empty if a group has < 2 points.
-        pair_dict = {h * delta_h:
-                     pd.DataFrame.from_dict({str(idx_tup): [
-                                            df_values[idx_tup[0]], df_values[idx_tup[1]]] for idx_tup in idx}, 'index')
-                     for h, idx in pairs.items()}
+        pair_dict = {}
+        for h, idx in pairs.items():
+            if not idx: # If no pairs for this h, create an empty DataFrame with consistent index
+                pair_dict[h * delta_h] = pd.DataFrame(columns=['output'], index=pd.Index([], dtype='object'))
+            else:
+                # Create a list of tuples for the MultiIndex
+                multi_index_tuples = [(h * delta_h, str(idx_tup)) for idx_tup in idx]
+                
+                # Create the MultiIndex
+                multi_index = pd.MultiIndex.from_tuples(multi_index_tuples, names=['h', 'pair_ind'])
+                
+                # Create the DataFrame with the MultiIndex
+                pair_dict[h * delta_h] = pd.DataFrame(
+                    data=[[df_values[idx_tup[0]], df_values[idx_tup[1]]] for idx_tup in idx],
+                    index=multi_index,
+                    columns=[0, 1]
+                )
 
-        # If no pairs were found, return an empty DataFrame to prevent the concat error.
         if not pair_dict:
-            return pd.DataFrame()
+            # Create an empty DataFrame with a 2-level MultiIndex
+            empty_multi_index = pd.MultiIndex.from_tuples([], names=['h', 'pair_ind'])
+            return pd.DataFrame(columns=[0, 1], index=empty_multi_index)
 
-        return pd.concat(pair_dict)
+        return pd.concat(list(pair_dict.values()))
 
     # --- 2. MONKEY-PATCH THE LIBRARY ---
     # We dynamically replace the buggy function in the loaded module with our fixed version.
@@ -179,76 +191,3 @@ for i in 1:d
     diff = abs(julia_results.ST[i] - analytical_results[i])
     @printf("x%-11d | %-10.4f | %-10.4f | %-10.4f | %-20.6f\n", i, julia_results.ST[i], python_results[i], analytical_results[i], diff)
 end
-
-using Pkg
-Pkg.activate("") # Activates the current environment
-
-# Make sure your VARS.jl source file is accessible and includes the new API
-include("../src/VARS.jl")
-
-using OrderedCollections
-using Statistics
-using LinearAlgebra
-using Printf
-
-println("--- VARS Analysis (Independent/Uniform): Julia vs. Analytical ---")
-
-# --- Analytical Solution for Sobol G-function ---
-function sobol_g_analytical_st(a::Vector)
-    d = length(a)
-    Vi = @. 1 / (3 * (1 + a)^2)
-    total_variance = prod(Vi .+ 1) - 1
-    st_indices = zeros(d)
-    for i in 1:d
-        st_indices[i] = (Vi[i] / total_variance) * (total_variance + 1) / (Vi[i] + 1)
-    end
-    return st_indices
-end
-
-# --- Model Setup ---
-function sobol_g_function_batch(X::AbstractMatrix, a::Vector)
-    d, n_points = size(X)
-    results = ones(n_points)
-    for i in 1:d
-        results .*= (abs.(4 .* X[i,:] .- 2) .+ a[i]) ./ (1 .+ a[i])
-    end
-    return results
-end
-
-# --- Problem Definition ---
-a = [0, 0.5, 3, 9, 99, 99, 99, 99]
-d = length(a)
-parameters = OrderedDict("x$i" => (p1=0.0, p2=1.0, p3=nothing, dist="unif") for i in 1:d)
-corr_mat_identity = Matrix{Float64}(I, d, d)
-N = 256 
-delta_h = 0.1
-
-# --- Step 1: ASK for samples using the dispatcher ---
-println("\nStep 1: Generating VARS samples using the dispatcher...")
-# Because params are uniform and corr_mat is identity, this will call `generate_vars_samples`
-problem = VARS.sample(parameters, N, delta_h, corr_mat=corr_mat_identity, seed=123)
-
-# --- Step 2: Run the model ---
-println("Step 2: Running the model function...")
-Y = sobol_g_function_batch(problem.X, a)
-
-# --- Step 3: TELL the results to the dispatcher for analysis ---
-println("Step 3: Running analyses...")
-
-println("  - Running Julia VARS implementation via dispatcher...")
-# This will call `vars_analyse` because problem.method is :VARS
-julia_results = VARS.analyse(problem, Y)
-
-println("  - Calculating analytical solution...")
-analytical_results = sobol_g_analytical_st(a)
-
-# --- Step 4: Display Final Comparison Table ---
-println("\n--- VARS Analysis Results ---")
-@printf("%-12s | %-10s | %-10s | %-20s\n", "Parameter", "Julia ST", "Analytic", "Difference")
-println(repeat("-", 58))
-for i in 1:d
-    diff = abs(julia_results.ST[i] - analytical_results[i])
-    @printf("x%-11d | %-10.4f | %-10.4f | %-20.6f\n", i, julia_results.ST[i], analytical_results[i], diff)
-end
-
-println("\n\nNext step: We will create a new test for G-VARS using a correlated function.")

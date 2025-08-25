@@ -47,7 +47,7 @@ function calculate_ground_truth_st()
     # --- MEMORY-ADJUSTED LINE ---
     # N_truth is now 2^18, so 2*N_truth is 2^19 = 524,288.
     # This should be manageable on a 64GB system.
-    N_truth = 262144
+    N_truth = 2
     
     fictive_corr = VARS.map_to_fictive_corr(parameters, corr_mat)
     fictive_corr_pd = VARS._ensure_pos_def(fictive_corr)

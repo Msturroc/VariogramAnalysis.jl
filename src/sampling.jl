@@ -31,12 +31,20 @@ end
 """
     generate_vars_samples(...)
 """
-function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64; seed::Union{Nothing, Int}=nothing)
+function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64; seed::Union{Nothing, Int}=nothing, sampler_type::String="sobol")
     d = length(parameters)
     if !isnothing(seed)
         Random.seed!(seed)
     end
-    sampler = SobolSample(R=OwenScramble(base=2))
+
+    local sampler
+    if sampler_type == "lhs"
+        sampler = LatinHypercubeSample()
+    elseif sampler_type == "sobol"
+        sampler = SobolSample(R=OwenScramble(base=2))
+    else
+        error("Unsupported sampler type: $sampler_type. Supported types are 'lhs' and 'sobol'.")
+    end
     
     centres = QuasiMonteCarlo.sample(N, d, sampler)
     point_vectors = Vector{Float64}[]
@@ -74,13 +82,21 @@ end
     generate_gvars_samples(...)
 """
 function generate_gvars_samples(parameters::OrderedDict, N::Int, corr_mat::AbstractMatrix, num_dir_samples::Int;
-                                seed::Union{Nothing, Int}=nothing, use_fictive_corr::Bool=true)
+                                seed::Union{Nothing, Int}=nothing, use_fictive_corr::Bool=true, sampler_type::String="sobol")
     
     d = length(parameters)
     if !isnothing(seed)
         Random.seed!(seed)
     end
-    sampler = SobolSample(R=OwenScramble(base=2))
+
+    local sampler
+    if sampler_type == "lhs"
+        sampler = LatinHypercubeSample()
+    elseif sampler_type == "sobol"
+        sampler = SobolSample(R=OwenScramble(base=2))
+    else
+        error("Unsupported sampler type: $sampler_type. Supported types are 'lhs' and 'sobol'.")
+    end
 
     fictive_corr_raw = use_fictive_corr ? map_to_fictive_corr(parameters, corr_mat) : corr_mat
     

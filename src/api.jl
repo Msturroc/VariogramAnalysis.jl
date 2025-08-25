@@ -18,7 +18,8 @@ function sample(parameters::OrderedDict, N::Int, delta_h::Float64;
                 corr_mat::Union{AbstractMatrix, Nothing}=nothing,
                 num_dir_samples::Int=50,
                 seed::Union{Nothing, Int}=nothing,
-                use_fictive_corr::Bool=true)
+                use_fictive_corr::Bool=true,
+                sampler_type::String="sobol")
 
     d = length(parameters)
     is_uniform = all(p.dist == "unif" for p in values(parameters))
@@ -27,7 +28,7 @@ function sample(parameters::OrderedDict, N::Int, delta_h::Float64;
     if is_uniform && is_independent
         println("Info: Detected independent, uniform case. Using standard VARS sampling.")
         method = :VARS
-        samples = generate_vars_samples(parameters, N, delta_h, seed=seed)
+        samples = generate_vars_samples(parameters, N, delta_h, seed=seed, sampler_type=sampler_type)
         X, info = samples.X, samples.info
     else
         println("Info: Detected correlated or non-uniform case. Using G-VARS sampling.")
@@ -38,7 +39,7 @@ function sample(parameters::OrderedDict, N::Int, delta_h::Float64;
         final_corr_mat = isnothing(corr_mat) ? Matrix{Float64}(I, d, d) : corr_mat
         samples = generate_gvars_samples(parameters, N, final_corr_mat, num_dir_samples, 
                                          seed=seed, 
-                                         use_fictive_corr=use_fictive_corr)
+                                         use_fictive_corr=use_fictive_corr, sampler_type=sampler_type)
         X, info = samples.X, samples.info
     end
 
