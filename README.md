@@ -1,6 +1,8 @@
 # VARS.jl
 
-`VARS.jl` is a pure Julia implementation of the Variogram Analysis of Response Surfaces (VARS) method for global sensitivity analysis, as described by M. Razavi and H. V. Gupta. VARS is a robust and efficient method for sensitivity analysis of complex models.
+`VARS.jl` is a pure Julia implementation of the Variogram Analysis of Response Surfaces (VARS) method for global sensitivity analysis. This work is based on the original research by M. Razavi and H. V. Gupta and inspired by the Python implementation available at [vars-tool/vars-tool](https://github.com/vars-tool/vars-tool).
+
+Currently, this package implements the core VARS and GVARS methods and should be considered a work in progress.
 
 This package provides tools to:
 *   Generate the required input parameter samples using Latin Hypercube Sampling.

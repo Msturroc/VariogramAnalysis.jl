@@ -1,6 +1,6 @@
 name = "VARS"
 uuid = "07dc4704-23df-41f7-aa80-c1ad3d8f3e52"
-authors = ["msturroc <marcsturrock@protonmail.com>"]
+authors = ["msturroc <marcsturrock@protonmail.com>", "Shayan Jalali <shayanjalali@rcsi.ie>"]
 version = "0.1.0"
 repo = "https://github.com/msturroc/VARS.jl.git"
 
