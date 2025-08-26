@@ -1,7 +1,7 @@
-name = "VARS"
+name = "VariogramAnalysis"
 uuid = "07dc4704-23df-41f7-aa80-c1ad3d8f3e52"
 authors = ["msturroc <marcsturrock@protonmail.com>", "Shayan Jalali <shayanjalali@rcsi.ie>"]
-repo = "https://github.com/msturroc/VARS.jl.git"
+repo = "https://github.com/msturroc/VariogramAnalysis.jl.git"
 version = "0.1.0"
 
 [deps]

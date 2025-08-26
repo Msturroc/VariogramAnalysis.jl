@@ -1,6 +1,6 @@
 using Test
 
-@testset "VARS.jl" begin
+@testset "VariogramAnalysis.jl" begin
     # First, include the helper function so it's defined for the tests that follow.
     println("Including test helpers...")
     include("test_helpers.jl")

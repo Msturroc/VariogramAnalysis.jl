@@ -1,7 +1,7 @@
 using PyCall
 using Conda
 
-@info "VARS.jl build: Setting up Python dependencies..."
+@info "VariogramAnalysis.jl build: Setting up Python dependencies..."
 
 try
     # Step 1: Find the Python executable that PyCall is configured to use.

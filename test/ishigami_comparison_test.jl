@@ -1,4 +1,4 @@
-using VARS
+using VariogramAnalysis
 using OrderedCollections
 using Statistics
 using LinearAlgebra
@@ -77,10 +77,10 @@ with_patched_varstool() do
 
         println("  Running Julia VARS/G-VARS with $(num_boot_replicates) bootstrap replicates...")
         Random.seed!(seed)
-        julia_problem = VARS.sample(julia_params, num_stars, delta_h; seed=seed, sampler_type=sampler, corr_mat=corr_mat, num_dir_samples=num_dir_samples, use_fictive_corr=fictive_mat_flag)
+        julia_problem = VariogramAnalysis.sample(julia_params, num_stars, delta_h; seed=seed, sampler_type=sampler, corr_mat=corr_mat, num_dir_samples=num_dir_samples, use_fictive_corr=fictive_mat_flag)
         julia_Y = [ishigami_julia(x) for x in eachcol(julia_problem.X)]
-        compute_st_closure = (Y_b, X_b, X_norm_b, info_b, N_b, d_b, delta_h_b) -> VARS.analyse(julia_problem.method, X_b, X_norm_b, info_b, julia_params, N_b, d_b, delta_h_b, Y_b)
-        julia_boot_results = VARS.VARSBootstrap.bootstrap_st!(compute_st_closure, julia_Y, julia_problem.X, julia_problem.X_norm, julia_problem.info, julia_problem.N, julia_problem.d, julia_problem.delta_h; num_boot=num_boot_replicates, seed=seed)
+        compute_st_closure = (Y_b, X_b, X_norm_b, info_b, N_b, d_b, delta_h_b) -> VariogramAnalysis.analyse(julia_problem.method, X_b, X_norm_b, info_b, julia_params, N_b, d_b, delta_h_b, Y_b)
+        julia_boot_results = VariogramAnalysis.VARSBootstrap.bootstrap_st!(compute_st_closure, julia_Y, julia_problem.X, julia_problem.X_norm, julia_problem.info, julia_problem.N, julia_problem.d, julia_problem.delta_h; num_boot=num_boot_replicates, seed=seed)
         julia_st_boot = julia_boot_results.st_boot
 
         println("  Running Python varstool $(exp_type) with $(num_boot_replicates) bootstrap replicates...")

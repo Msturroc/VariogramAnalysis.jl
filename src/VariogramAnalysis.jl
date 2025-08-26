@@ -1,5 +1,4 @@
-# src/VARS.jl
-module VARS
+module VariogramAnalysis
 
 # Dependencies
 using QuasiMonteCarlo, Statistics, Combinatorics, Distributions, Roots, HCubature, ProgressMeter, LinearAlgebra, OrderedCollections, Random 

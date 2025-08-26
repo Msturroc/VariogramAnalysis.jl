@@ -20,7 +20,7 @@ function _get_param_bounds(parameters::OrderedDict)
             xmax[i] = p.p1 + 3 * p.p2
         else
             # Fallback for other distributions: estimate from a large sample
-            dist, _, _ = VARS._get_distribution_and_stats(p)
+            dist, _, _ = VariogramAnalysis._get_distribution_and_stats(p)
             q_low = quantile(dist, 0.001)
             q_high = quantile(dist, 0.999)
             xmin[i], xmax[i] = q_low, q_high

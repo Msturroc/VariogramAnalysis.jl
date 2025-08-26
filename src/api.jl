@@ -3,7 +3,7 @@
 using LinearAlgebra, OrderedCollections, Random, Distributions, Combinatorics
 
 """
-    VARS.sample(params::OrderedDict, num_stars::Int, delta_h::Float64; ...)
+    VariogramAnalysis.sample(params::OrderedDict, num_stars::Int, delta_h::Float64; ...)
 
 Generate VARS/GVARS design of experiments. This function now acts as a dispatcher.
 """
@@ -15,17 +15,17 @@ function sample(params::OrderedDict, num_stars::Int, delta_h::Float64;
     if corr_mat === nothing
         # --- VARS Path ---
         method = :VARS
-        X_norm, info = VARS.generate_vars_samples(params, num_stars, delta_h; seed=seed, sampler_type=sampler_type)
-        X = VARS.uniform_to_original_dist(X_norm, params)
+        X_norm, info = VariogramAnalysis.generate_vars_samples(params, num_stars, delta_h; seed=seed, sampler_type=sampler_type)
+        X = VariogramAnalysis.uniform_to_original_dist(X_norm, params)
         d = length(params)
         return (method=method, X=X, X_norm=X_norm, info=info, N=num_stars, d=d, delta_h=delta_h)
     else
         # --- G-VARS Path ---
         method = :GVARS
-        X, info = VARS.generate_gvars_samples(params, num_stars, corr_mat, num_dir_samples, delta_h;
+        X, info = VariogramAnalysis.generate_gvars_samples(params, num_stars, corr_mat, num_dir_samples, delta_h;
                                               seed=seed, use_fictive_corr=use_fictive_corr, sampler_type=sampler_type)
         # For G-VARS, X_norm must be derived from X by applying the CDF of each parameter
-        X_norm = VARS.scale_to_unity(X, params)
+        X_norm = VariogramAnalysis.scale_to_unity(X, params)
         d = length(params)
         return (method=method, X=X, X_norm=X_norm, info=info, N=num_stars, d=d, delta_h=delta_h)
     end
@@ -58,7 +58,7 @@ function scale_to_unity(X::Matrix, parameters::OrderedDict)
 
     for i in 1:d
         # Get the distribution object for the current parameter
-        dist, _, _ = VARS._get_distribution_and_stats(param_defs[i])
+        dist, _, _ = VariogramAnalysis._get_distribution_and_stats(param_defs[i])
         
         # Apply the CDF of that distribution to its samples
         X_norm[i, :] = cdf.(dist, @view X[i, :])
@@ -77,7 +77,7 @@ function uniform_to_original_dist(X_norm::Matrix, parameters::OrderedDict)
     param_defs = collect(values(parameters))
 
     for i in 1:d
-        dist, _, _ = VARS._get_distribution_and_stats(param_defs[i])
+        dist, _, _ = VariogramAnalysis._get_distribution_and_stats(param_defs[i])
         # Add a small epsilon to prevent exact 0 or 1
         u_clamped = clamp.(@view(X_norm[i, :]), 1e-15, 1.0 - 1e-15)
         X[i, :] = quantile.(dist, u_clamped)

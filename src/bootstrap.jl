@@ -3,8 +3,8 @@
 module VARSBootstrap
 
 using Statistics, Random
-# Use ..VARS to access the parent module's functions if needed, assuming this file is part of the VARS module structure
-using ..VARS 
+
+using ..VariogramAnalysis 
 
 export bootstrap_st!, rank_from_bootstrap, group_factors
 

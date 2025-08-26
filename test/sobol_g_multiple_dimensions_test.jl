@@ -1,4 +1,4 @@
-using VARS
+using VariogramAnalysis
 using OrderedCollections
 using Statistics
 using LinearAlgebra
@@ -79,11 +79,11 @@ with_patched_varstool() do
 
         println("\nStep 1: Running Julia Analysis...")
         Random.seed!(seed)
-        problem_jl = VARS.sample(parameters_julia, N, delta_h, seed=seed)
+        problem_jl = VariogramAnalysis.sample(parameters_julia, N, delta_h, seed=seed)
         Y_jl = [sobol_g_julia(x, a) for x in eachcol(problem_jl.X)]
         
-        compute_st_closure = (Y_b, X_b, X_norm_b, info_b, N_b, d_b, delta_h_b) -> VARS.analyse(problem_jl.method, X_b, X_norm_b, info_b, parameters_julia, N_b, d_b, delta_h_b, Y_b)
-        julia_boot_results = VARS.VARSBootstrap.bootstrap_st!(compute_st_closure, Y_jl, problem_jl.X, problem_jl.X_norm, problem_jl.info, problem_jl.N, problem_jl.d, problem_jl.delta_h; num_boot=num_boot_replicates, seed=seed)
+        compute_st_closure = (Y_b, X_b, X_norm_b, info_b, N_b, d_b, delta_h_b) -> VariogramAnalysis.analyse(problem_jl.method, X_b, X_norm_b, info_b, parameters_julia, N_b, d_b, delta_h_b, Y_b)
+        julia_boot_results = VariogramAnalysis.VARSBootstrap.bootstrap_st!(compute_st_closure, Y_jl, problem_jl.X, problem_jl.X_norm, problem_jl.info, problem_jl.N, problem_jl.d, problem_jl.delta_h; num_boot=num_boot_replicates, seed=seed)
         julia_st_boot = julia_boot_results.st_boot
 
         println("\nStep 2: Running Python Analysis...")
