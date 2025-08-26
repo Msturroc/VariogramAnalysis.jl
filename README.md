@@ -1,6 +1,6 @@
-# VARS.jl
+# VariogramAnalysis.jl
 
-`VARS.jl` is a pure Julia implementation of the Variogram Analysis of Response Surfaces (VARS) method for global sensitivity analysis. This work is based on the original research by M. Razavi and H. V. Gupta and inspired by the Python implementation available at [vars-tool/vars-tool](https://github.com/vars-tool/vars-tool).
+`VariogramAnalysis.jl` is a pure Julia implementation of the Variogram Analysis of Response Surfaces (VARS) method for global sensitivity analysis. This work is based on the original research by M. Razavi and H. V. Gupta and inspired by the Python implementation available at [vars-tool/vars-tool](https://github.com/vars-tool/vars-tool).
 
 Currently, this package implements the core VARS and GVARS methods and should be considered a work in progress.
 
@@ -13,16 +13,16 @@ This package provides tools to:
 
 From the Julia REPL, type `]` to enter the Pkg REPL mode and run:
 ```
-pkg> add VARS
+pkg> add VariogramAnalysis
 ```
 
 ## Usage Example: Sobol-G Function
 
-Let's walk through an example using the Sobol-G function to understand the main workflow of `VARS.jl`.
+Let's walk through an example using the Sobol-G function to understand the main workflow of `VariogramAnalysis.jl`.
 
 First, bring the necessary packages into scope.
 ```julia
-using VARS
+using VariogramAnalysis
 using OrderedCollections
 using Random
 using Statistics
@@ -57,7 +57,7 @@ parameters_julia = OrderedDict("x$i" => (p1=0.0, p2=1.0, p3=nothing, dist="unif"
 
 ### 3. Sample the Input Space
 
-Use the `VARS.sample` function to generate the input samples required for the VARS method.
+Use the `VariogramAnalysis.sample` function to generate the input samples required for the VARS method.
 
 ```julia
 N = 256             # Number of star centers
@@ -65,7 +65,7 @@ delta_h = 0.1       # Step size for radial sampling
 seed = 123          # for reproducibility
 
 Random.seed!(seed)
-problem = VARS.sample(parameters_julia, N, delta_h, seed=seed)
+problem = VariogramAnalysis.sample(parameters_julia, N, delta_h, seed=seed)
 ```
 
 ### 4. Run Your Model
@@ -86,11 +86,11 @@ num_boot_replicates = 50 # Number of bootstrap replicates
 
 # Define a closure for the analysis function
 compute_st_closure = (Y_b, X_b, X_norm_b, info_b, N_b, d_b, delta_h_b) -> begin
-    VARS.analyse(problem.method, X_b, X_norm_b, info_b, parameters_julia, N_b, d_b, delta_h_b, Y_b)
+    VariogramAnalysis.analyse(problem.method, X_b, X_norm_b, info_b, parameters_julia, N_b, d_b, delta_h_b, Y_b)
 end
 
 # Run the bootstrap analysis
-julia_boot_results = VARS.VARSBootstrap.bootstrap_st!(
+julia_boot_results = VariogramAnalysis.VARSBootstrap.bootstrap_st!(
     compute_st_closure, Y, problem.X, problem.X_norm, problem.info,
     problem.N, problem.d, problem.delta_h;
     num_boot=num_boot_replicates, seed=seed
