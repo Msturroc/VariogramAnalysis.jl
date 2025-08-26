@@ -1,8 +1,4 @@
-using Pkg
-Pkg.activate("") # Activates the current environment
-
-include("../src/VARS.jl")
-
+using VARS
 using OrderedCollections
 using Statistics
 using LinearAlgebra
@@ -226,6 +222,7 @@ for d in dimensions_to_test
         # Create everything entirely in Python to avoid parameter ordering issues
         py"""
         import numpy as np
+        from collections import OrderedDict
         
         # Create the model
         model_instance = Model(sobol_g_python)

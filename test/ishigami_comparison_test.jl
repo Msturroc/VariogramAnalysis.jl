@@ -1,8 +1,4 @@
-using Pkg
-Pkg.activate("") # Activates the current environment
-
-include("../src/VARS.jl")
-
+using VARS
 using OrderedCollections
 using Statistics
 using LinearAlgebra

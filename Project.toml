@@ -1,8 +1,8 @@
 name = "VARS"
 uuid = "07dc4704-23df-41f7-aa80-c1ad3d8f3e52"
 authors = ["msturroc <marcsturrock@protonmail.com>", "Shayan Jalali <shayanjalali@rcsi.ie>"]
-version = "0.1.0"
 repo = "https://github.com/msturroc/VARS.jl.git"
+version = "0.1.0"
 
 [deps]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
@@ -16,11 +16,11 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 QuasiMonteCarlo = "8a4e6c94-4038-4cdc-81c3-7e6ffdb2a71b"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
-julia = "1.11"
 Combinatorics = "1.0"
 Conda = "1.10"
 DataFrames = "1.7"
@@ -30,4 +30,12 @@ OrderedCollections = "1.8"
 ProgressMeter = "1.10"
 PyCall = "1.96"
 QuasiMonteCarlo = "0.3"
+Random = "1.11.0"
 Roots = "2.2"
+julia = "1.11"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

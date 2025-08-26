@@ -1,4 +1,3 @@
-using VARS
 using Test
 
 @testset "VARS.jl" begin
