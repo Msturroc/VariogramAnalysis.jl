@@ -8,7 +8,7 @@ This package provides tools to:
 *   Calculate total-order sensitivity indices (ST).
 *   Perform bootstrap analysis to estimate confidence intervals for the sensitivity indices.
 
-## 💾 Installation
+## Installation
 
 The package is registered in the official Julia General registry. You can install it by switching to the Pkg REPL (press `]` in the Julia REPL) and running:
 ```
@@ -19,7 +19,7 @@ pkg> add VariogramAnalysis
 
 This package's test suite validates its results against the Python library `varstool.py`. Upon installation, the necessary Python packages (including `varstool`, `numba`, `pandas`, etc.) will be automatically installed into a private Conda environment using `PyCall.jl`. No manual Python setup is required.
 
-## 🚀 Performance and Use Cases
+## Performance and Use Cases
 
 Global Sensitivity Analysis is not a one-size-fits-all problem. The performance of a given method depends heavily on the characteristics of the model being analyzed.
 
@@ -31,7 +31,7 @@ The plot below shows a comparison of GSA methods on the highly nonlinear Sobol-G
 
 For smoother, more additive models, classic variance-based methods like eFAST may be more efficient. We encourage users to consider their problem's characteristics when choosing a method.
 
-## 📖 Usage Example: Sobol-G Function
+## Usage Example: Sobol-G Function
 
 Let's walk through an example using the Sobol-G function to understand the main workflow of `VariogramAnalysis.jl`.
 
