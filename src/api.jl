@@ -8,23 +8,35 @@ using LinearAlgebra, OrderedCollections, Random, Distributions, Combinatorics
 Generate VARS/GVARS design of experiments. This function now acts as a dispatcher.
 """
 function sample(params::OrderedDict, num_stars::Int, delta_h::Float64;
-                sampler_type="lhs", corr_mat=nothing,
-                num_dir_samples=10, # Default from python
-                use_fictive_corr=false, seed=1234)
+                sampler_type="lhs", 
+                corr_mat=nothing,
+                num_dir_samples=10,
+                use_fictive_corr=false, 
+                seed=nothing,
+                ray_logic::Symbol=:relative) # <-- 1. ADD THE NEW KEYWORD HERE
 
     if corr_mat === nothing
         # --- VARS Path ---
         method = :VARS
-        X_norm, info = VariogramAnalysis.generate_vars_samples(params, num_stars, delta_h; seed=seed, sampler_type=sampler_type)
+        
+        # --- 2. PASS THE KEYWORD DOWN TO THE INTERNAL FUNCTION ---
+        X_norm, info = VariogramAnalysis.generate_vars_samples(
+            params, num_stars, delta_h; 
+            seed=seed, 
+            sampler_type=sampler_type, 
+            ray_logic=ray_logic # <-- PASS IT HERE
+        )
+        
         X = VariogramAnalysis.uniform_to_original_dist(X_norm, params)
         d = length(params)
         return (method=method, X=X, X_norm=X_norm, info=info, N=num_stars, d=d, delta_h=delta_h)
     else
         # --- G-VARS Path ---
         method = :GVARS
-        X, info = VariogramAnalysis.generate_gvars_samples(params, num_stars, corr_mat, num_dir_samples, delta_h;
-                                              seed=seed, use_fictive_corr=use_fictive_corr, sampler_type=sampler_type)
-        # For G-VARS, X_norm must be derived from X by applying the CDF of each parameter
+        X, info = VariogramAnalysis.generate_gvars_samples(
+            params, num_stars, corr_mat, num_dir_samples, delta_h;
+            seed=seed, use_fictive_corr=use_fictive_corr, sampler_type=sampler_type
+        )
         X_norm = VariogramAnalysis.scale_to_unity(X, params)
         d = length(params)
         return (method=method, X=X, X_norm=X_norm, info=info, N=num_stars, d=d, delta_h=delta_h)

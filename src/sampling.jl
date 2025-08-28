@@ -1,5 +1,3 @@
-# src/sampling.jl
-
 using QuasiMonteCarlo, Random, LinearAlgebra, OrderedCollections, Distributions
 
 """
@@ -8,8 +6,7 @@ using QuasiMonteCarlo, Random, LinearAlgebra, OrderedCollections, Distributions
 Helper function to ensure a matrix is symmetric and positive definite.
 """
 function _ensure_pos_def(mat::AbstractMatrix, tol=1e-8)
-    # --- CORRECTED EIGENDECOMPOSITION ---
-    # Use Symmetric() to enforce symmetry and ensure real eigenvalues/vectors
+
     E = eigen(Symmetric(mat))
     
     new_eigenvalues = max.(E.values, tol)
@@ -34,19 +31,32 @@ end
 Generates the sample matrix and info for standard VARS (uncorrelated).
 Returns X_norm (in [0,1]^d) and the info vector.
 """
-function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64; seed::Union{Nothing, Int}=nothing, sampler_type::String="lhs")
-    d = length(parameters)
-    if !isnothing(seed)
-        Random.seed!(seed)
+function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64; 
+                               sampler_type::String="lhs", 
+                               ray_logic::Symbol=:relative,
+                               seed::Union{Nothing, Int}=nothing)
+    if N == 0
+        # Handle the edge case where no star centers are requested.
+        return (Matrix{Float64}(undef, d, 0), [])
     end
+    d = length(parameters)
 
-    sampler = if sampler_type == "lhs"
-        LatinHypercubeSample()
-    elseif sampler_type == "sobol"
-        SobolSample()
-    else # Fallback for "plhs" or others for now
-        @warn "Sampler '$sampler_type' not fully supported, using LatinHypercubeSample."
-        LatinHypercubeSample()
+
+    local sampler
+    if sampler_type == "lhs"
+        if !isnothing(seed)
+            rng = Random.MersenneTwister(seed)
+            sampler = LatinHypercubeSample(rng)
+        else
+            sampler = LatinHypercubeSample()
+        end
+    elseif sampler_type == "sobol_shift"
+        if !isnothing(seed)
+            Random.seed!(seed)
+        end
+        sampler = SobolSample(QuasiMonteCarlo.Shift())
+    else
+        error("Unsupported sampler_type: '$sampler_type'. Please use 'lhs' or 'sobol_shift'.")
     end
     
     centres = QuasiMonteCarlo.sample(N, d, sampler)
@@ -54,30 +64,46 @@ function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64
     point_vectors = Vector{Float64}[]
     point_info = NamedTuple{(:star_id, :dim_id, :step_id, :h), Tuple{Int, Int, Int, Float64}}[]
 
-    for i in 1:N
+     for i in 1:N
         centre = centres[:, i]
         push!(point_vectors, centre)
         push!(point_info, (star_id=i, dim_id=0, step_id=0, h=0.0))
 
         for j in 1:d
             c_dim = centre[j]
-            # Generate steps away from the centre
-            max_steps = floor(Int, 1 / delta_h)
-            for step in 1:max_steps
-                h = step * delta_h
-                # Add point in positive direction if within bounds
-                if c_dim + h <= 1.0
-                    new_point = copy(centre); new_point[j] = c_dim + h
-                    push!(point_vectors, new_point)
-                    push!(point_info, (star_id=i, dim_id=j, step_id=step, h=h))
+            
+            if ray_logic == :relative
+
+                max_steps = floor(Int, 1 / delta_h)
+                for step in 1:max_steps
+                    h = step * delta_h
+                    if c_dim + h <= 1.0
+                        new_point = copy(centre); new_point[j] = c_dim + h
+                        push!(point_vectors, new_point)
+                        push!(point_info, (star_id=i, dim_id=j, step_id=step, h=h))
+                    end
+                    if c_dim - h >= 0.0
+                        new_point = copy(centre); new_point[j] = c_dim - h
+                        push!(point_vectors, new_point)
+                        push!(point_info, (star_id=i, dim_id=j, step_id=-step, h=h))
+                    end
                 end
-                # Add point in negative direction if within bounds
-                if c_dim - h >= 0.0
-                    new_point = copy(centre); new_point[j] = c_dim - h
+            elseif ray_logic == :shifted_grid
+                # Your original, more accurate implementation
+                traj_values = filter(x -> x != c_dim, unique(vcat(c_dim % delta_h : delta_h : 1.0, c_dim % delta_h : -delta_h : 0.0)))
+                for traj_val in traj_values
+                    new_point = copy(centre)
+                    new_point[j] = clamp(traj_val, 0.0, 1.0)
+                    h_dist = abs(traj_val - c_dim)
+                    step = round(Int, h_dist / delta_h)
+                    step_id = (traj_val > c_dim) ? step : -step
                     push!(point_vectors, new_point)
-                    push!(point_info, (star_id=i, dim_id=j, step_id=-step, h=h))
+                    push!(point_info, (star_id=i, dim_id=j, step_id=step_id, h=h_dist))
                 end
+            else
+                error("Unsupported ray_logic: '$ray_logic'. Please use :relative or :shifted_grid.")
             end
+            # --- END OF NEW LOGIC ---
         end
     end
 
@@ -178,11 +204,6 @@ function generate_gvars_samples(parameters::OrderedDict, N::Int, corr_mat::Abstr
 
     # 5. Combine all points and transform to original parameter space
     combined_z = hcat(all_points_z...) # Concatenate all matrices column-wise
-    
-    # The info vector is already built, but we need to ensure it's sorted correctly
-    # to match the structure of combined_z
-    # The structure is: centres, then all rays for dim 1, then all rays for dim 2, etc.
-    # Our info_list build order already matches this.
 
     X = normal_to_original_dist(combined_z', parameters)'
 
