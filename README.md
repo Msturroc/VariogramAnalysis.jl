@@ -21,9 +21,9 @@ This package's test suite validates its results against the Python library `vars
 
 ## Performance and Use Cases
 
-Global Sensitivity Analysis is not a one-size-fits-all problem. The performance of a given method depends heavily on the characteristics of the model being analyzed.
+Global Sensitivity Analysis is not a one-size-fits-all problem. The performance of a given method depends heavily on the characteristics of the model being analysed.
 
-The VARS method, particularly with the `shifted_grid` sampling strategy implemented in this package, is exceptionally effective for models with **high-frequency, nonlinear, or interactive behavior**. It excels at detecting sensitivity in "rough" or complex response surfaces where traditional variance-based methods might struggle.
+The VARS method, particularly with the `shifted_grid` sampling strategy implemented in this package, is exceptionally effective for models with **high-frequency, nonlinear, or interactive behaviour**. This efficiency in higher dimensions makes it a strong candidate for the global sensitivity analysis of large (e.g., 30-50 dimensional) **systems biology or biological models**, which frequently exhibit precisely these complex characteristics.
 
 The plot below shows a comparison of GSA methods on the highly nonlinear Sobol-G function. As the dimensionality of the problem increases, `VariogramAnalysis.jl` (VARS, orange triangles) consistently provides the most accurate results for a given computational cost compared to other common methods.
 
@@ -58,8 +58,7 @@ function sobol_g_julia(x::AbstractVector, a::Vector)
         result *= (abs(4 * x[i] - 2) + a[i]) / (1 + a[i])
     end
     return result
-end
-```
+end```
 
 ### 2. Define Input Parameters
 
@@ -75,7 +74,7 @@ parameters_julia = OrderedDict("x$i" => (p1=0.0, p2=1.0, p3=nothing, dist="unif"
 Use the `VariogramAnalysis.sample` function to generate the input samples. For best performance, we recommend using the `sobol_shift` sampler and the `shifted_grid` ray logic.
 
 ```julia
-N = 256             # Number of star centers
+N = 256             # Number of star centres
 delta_h = 0.1       # Step size for radial sampling
 seed = 123          # for reproducibility
 
@@ -111,11 +110,12 @@ julia_boot_results = VariogramAnalysis.VARSBootstrap.bootstrap_st!(
     compute_st_closure, Y, problem.X, problem.X_norm, problem.info,
     problem.N, problem.d, problem.delta_h;
     num_boot=num_boot_replicates, seed=seed
-)```
+)
+```
 
 ### 6. View the Results
 
-You can now analyze the results, for example, by calculating the mean of the bootstrapped sensitivity indices.
+You can now analyse the results, for example, by calculating the mean of the bootstrapped sensitivity indices.
 
 ```julia
 mean_st = mean(julia_boot_results.st_boot, dims=1)
