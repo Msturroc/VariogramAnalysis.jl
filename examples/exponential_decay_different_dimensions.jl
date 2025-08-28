@@ -305,6 +305,7 @@ results_exp_decay = run_sensitivity_study_distributed(
 try
     plot_exp_decay = plot_st_error_comparison_with_errorbars(results_exp_decay; selected_methods=selected_methods_all)
     display(plot_exp_decay)
+    savefig("examples/exponential_decay_different_dimensions.png")
     println("\nDistributed comparison plot for Exponential Decay model generated (n=$n_repeats repeats).")
 catch e
     println("\nError during plotting: $e")

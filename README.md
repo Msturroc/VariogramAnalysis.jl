@@ -2,21 +2,36 @@
 
 `VariogramAnalysis.jl` is a pure Julia implementation of the Variogram Analysis of Response Surfaces (VARS) method for global sensitivity analysis. This work is based on the original research by M. Razavi and H. V. Gupta and inspired by the Python implementation available at [vars-tool/vars-tool](https://github.com/vars-tool/vars-tool).
 
-Currently, this package implements the core VARS and GVARS methods and should be considered a work in progress.
-
 This package provides tools to:
-*   Generate the required input parameter samples using Latin Hypercube Sampling.
+*   Generate input parameter samples using efficient quasi-Monte Carlo methods (Sobol and Latin Hypercube).
+*   Implement two different strategies for generating VARS "star" samples.
 *   Calculate total-order sensitivity indices (ST).
 *   Perform bootstrap analysis to estimate confidence intervals for the sensitivity indices.
 
-## Installation
+## 💾 Installation
 
-From the Julia REPL, type `]` to enter the Pkg REPL mode and run:
+The package is registered in the official Julia General registry. You can install it by switching to the Pkg REPL (press `]` in the Julia REPL) and running:
 ```
 pkg> add VariogramAnalysis
 ```
 
-## Usage Example: Sobol-G Function
+### Dependencies
+
+This package's test suite validates its results against the Python library `varstool.py`. Upon installation, the necessary Python packages (including `varstool`, `numba`, `pandas`, etc.) will be automatically installed into a private Conda environment using `PyCall.jl`. No manual Python setup is required.
+
+## 🚀 Performance and Use Cases
+
+Global Sensitivity Analysis is not a one-size-fits-all problem. The performance of a given method depends heavily on the characteristics of the model being analyzed.
+
+The VARS method, particularly with the `shifted_grid` sampling strategy implemented in this package, is exceptionally effective for models with **high-frequency, nonlinear, or interactive behavior**. It excels at detecting sensitivity in "rough" or complex response surfaces where traditional variance-based methods might struggle.
+
+The plot below shows a comparison of GSA methods on the highly nonlinear Sobol-G function. As the dimensionality of the problem increases, `VariogramAnalysis.jl` (VARS, orange triangles) consistently provides the most accurate results for a given computational cost compared to other common methods.
+
+![Sobol-G Benchmark Results](examples/sobol_g_different_dimensions.png)
+
+For smoother, more additive models, classic variance-based methods like eFAST may be more efficient. We encourage users to consider their problem's characteristics when choosing a method.
+
+## 📖 Usage Example: Sobol-G Function
 
 Let's walk through an example using the Sobol-G function to understand the main workflow of `VariogramAnalysis.jl`.
 
@@ -48,7 +63,7 @@ end
 
 ### 2. Define Input Parameters
 
-Next, define the input parameters for your model using an `OrderedDict`. For each parameter, specify its distribution and range. Here, we define a 4-dimensional problem with uniform distributions.
+Next, define the input parameters for your model using an `OrderedDict`. For each parameter, specify its distribution and range.
 
 ```julia
 d = 4 # Number of dimensions
@@ -57,15 +72,17 @@ parameters_julia = OrderedDict("x$i" => (p1=0.0, p2=1.0, p3=nothing, dist="unif"
 
 ### 3. Sample the Input Space
 
-Use the `VariogramAnalysis.sample` function to generate the input samples required for the VARS method.
+Use the `VariogramAnalysis.sample` function to generate the input samples. For best performance, we recommend using the `sobol_shift` sampler and the `shifted_grid` ray logic.
 
 ```julia
 N = 256             # Number of star centers
 delta_h = 0.1       # Step size for radial sampling
 seed = 123          # for reproducibility
 
-Random.seed!(seed)
-problem = VariogramAnalysis.sample(parameters_julia, N, delta_h, seed=seed)
+problem = VariogramAnalysis.sample(parameters_julia, N, delta_h; 
+                                   seed=seed, 
+                                   sampler_type="sobol_shift", 
+                                   ray_logic=:shifted_grid)
 ```
 
 ### 4. Run Your Model
@@ -94,8 +111,7 @@ julia_boot_results = VariogramAnalysis.VARSBootstrap.bootstrap_st!(
     compute_st_closure, Y, problem.X, problem.X_norm, problem.info,
     problem.N, problem.d, problem.delta_h;
     num_boot=num_boot_replicates, seed=seed
-)
-```
+)```
 
 ### 6. View the Results
 
