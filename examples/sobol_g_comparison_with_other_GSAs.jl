@@ -74,7 +74,6 @@ end
         return ST
     end
 
-    # --- THIS IS THE FIX: The PCE function is now back inside @everywhere ---
     function compute_sobol_indices_st_only(pce)
         coeffs = pce.coeff; multiidx = pce.orthopolys.ind; d = size(multiidx, 2)
         varY_pce = sum(coeffs[2:end].^2); if varY_pce < 1e-12 return zeros(d) end

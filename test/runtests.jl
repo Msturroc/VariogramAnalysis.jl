@@ -15,4 +15,9 @@ using Test
     @testset "Sobol-G Comparison" begin
         include("sobol_g_multiple_dimensions_test.jl")
     end
+
+    println("\nRunning D-VARS tests...")
+    @testset "D-VARS Tests" begin
+        include("dvars_test.jl")
+    end
 end
