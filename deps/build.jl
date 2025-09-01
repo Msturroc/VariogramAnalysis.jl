@@ -20,7 +20,7 @@ try
 
     # Step 3: Use Julia's `run()` command to execute pip directly.
     @info "Installing 'varstool', 'numba', and other dependencies with pip..."
-    run(`$pip_exe install varstool numba pandas numpy scipy tqdm`)
+    run(`$pip_exe install varstool numba pandas numpy scipy tqdm joblib`)
 
     @info "Python dependencies configured successfully."
 

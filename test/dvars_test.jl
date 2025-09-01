@@ -28,7 +28,7 @@ using QuasiMonteCarlo
     )
 
     # c. Run the D-VARS analysis
-    sens, ratios, phis, v = dvars_sensitivities(df_ishigami, :y, correlation_func_type="SquaredExponential")
+    sens, ratios, phis, v = dvars_sensitivities(df_ishigami, :y, Hj=1.0)
 
     # d. Print and check the results
     println("\n--- D-VARS Results ---")
