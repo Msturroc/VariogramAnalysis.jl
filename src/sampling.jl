@@ -22,7 +22,7 @@ function _ensure_pos_def(mat::AbstractMatrix, tol=1e-8)
     corrected_mat = (corrected_mat_almost_symm + corrected_mat_almost_symm') / 2
     
     return corrected_mat
-end
+endvarstool
 
 
 """
