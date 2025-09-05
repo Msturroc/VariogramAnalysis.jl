@@ -8,9 +8,13 @@ try
     python_exe = PyCall.python
 
     # Step 2: Determine the path to the corresponding 'pip' executable.
-    # It lives in the same directory as the python executable.
-    # We handle both Windows ('Scripts/pip.exe') and Unix-like ('bin/pip') cases.
-    pip_exe = joinpath(dirname(python_exe), Sys.iswindows() ? "pip.exe" : "pip")
+    # On Windows, pip is in the 'Scripts' subdirectory of the Python installation.
+    # On Unix-like systems, it's typically in the same 'bin' directory as the python executable.
+    if Sys.iswindows()
+        pip_exe = joinpath(dirname(python_exe), "Scripts", "pip.exe")
+    else
+        pip_exe = joinpath(dirname(python_exe), "pip")
+    end
 
     if !isfile(pip_exe)
         error("Could not find pip executable at expected location: $pip_exe")

@@ -2,7 +2,7 @@ name = "VariogramAnalysis"
 uuid = "07dc4704-23df-41f7-aa80-c1ad3d8f3e52"
 authors = ["msturroc <marcsturrock@protonmail.com>", "Shayan Jalali <shayanjalali@rcsi.ie>"]
 repo = "https://github.com/msturroc/VariogramAnalysis.jl.git"
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 BlackBoxOptim = "a134a8b2-14d6-55f6-9291-3336d3ab0209"
