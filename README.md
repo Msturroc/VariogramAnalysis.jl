@@ -17,7 +17,9 @@ pkg> add VariogramAnalysis
 
 ### Dependencies
 
-This package's test suite validates its results against the Python library `varstool.py`. Upon installation, the necessary Python packages (including `varstool`, `numba`, `pandas`, etc.) will be automatically installed into a private Conda environment using `PyCall.jl`. No manual Python setup is required.
+This package is pure Julia and requires no Python setup. Its results are validated against the original Python library `varstool` by a dedicated validation suite in `test/python_validation/`, which can be run separately (see the README in that directory).
+
+The D-VARS methods (`dvars_sensitivities` and `dvars_sensitivities_robust`) are provided as package extensions to keep the core package lightweight: load `DataFrames` and `Surrogates` (for the Kriging version) or `DataFrames` and `BlackBoxOptim` (for the robust version) to activate them.
 
 ## Performance and Use Cases
 
@@ -58,7 +60,8 @@ function sobol_g_julia(x::AbstractVector, a::Vector)
         result *= (abs(4 * x[i] - 2) + a[i]) / (1 + a[i])
     end
     return result
-end```
+end
+```
 
 ### 2. Define Input Parameters
 

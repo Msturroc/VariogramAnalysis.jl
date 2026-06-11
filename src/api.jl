@@ -5,28 +5,28 @@ using LinearAlgebra, OrderedCollections, Random, Distributions, Combinatorics
 """
     VariogramAnalysis.sample(params::OrderedDict, num_stars::Int, delta_h::Float64; ...)
 
-Generate VARS/GVARS design of experiments. This function now acts as a dispatcher.
+Generate VARS/GVARS design of experiments. Dispatches to the VARS path when no
+correlation matrix is given, and to the G-VARS path otherwise.
 """
 function sample(params::OrderedDict, num_stars::Int, delta_h::Float64;
-                sampler_type="lhs", 
+                sampler_type="lhs",
                 corr_mat=nothing,
                 num_dir_samples=10,
-                use_fictive_corr=false, 
+                use_fictive_corr=false,
                 seed=nothing,
-                ray_logic::Symbol=:relative) # <-- 1. ADD THE NEW KEYWORD HERE
+                ray_logic::Symbol=:relative)
 
     if corr_mat === nothing
         # --- VARS Path ---
         method = :VARS
-        
-        # --- 2. PASS THE KEYWORD DOWN TO THE INTERNAL FUNCTION ---
+
         X_norm, info = VariogramAnalysis.generate_vars_samples(
-            params, num_stars, delta_h; 
-            seed=seed, 
-            sampler_type=sampler_type, 
-            ray_logic=ray_logic # <-- PASS IT HERE
+            params, num_stars, delta_h;
+            seed=seed,
+            sampler_type=sampler_type,
+            ray_logic=ray_logic
         )
-        
+
         X = VariogramAnalysis.uniform_to_original_dist(X_norm, params)
         d = length(params)
         return (method=method, X=X, X_norm=X_norm, info=info, N=num_stars, d=d, delta_h=delta_h)
@@ -71,7 +71,7 @@ function scale_to_unity(X::Matrix, parameters::OrderedDict)
     for i in 1:d
         # Get the distribution object for the current parameter
         dist, _, _ = VariogramAnalysis._get_distribution_and_stats(param_defs[i])
-        
+
         # Apply the CDF of that distribution to its samples
         X_norm[i, :] = cdf.(dist, @view X[i, :])
     end

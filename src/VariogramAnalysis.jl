@@ -1,14 +1,14 @@
 module VariogramAnalysis
 
 # Dependencies
-using Statistics, Combinatorics, Distributions, Roots, HCubature, ProgressMeter, LinearAlgebra, OrderedCollections, Random 
+using Statistics, Combinatorics, Distributions, Roots, HCubature, ProgressMeter, LinearAlgebra, OrderedCollections, Random
 
 # Include source files
 include("utils.jl")
 include("sampling.jl")
 include("analysis.jl")
 include("gvars.jl")
-include("api.jl") # <-- ADD THIS LINE
+include("api.jl")
 include("bootstrap.jl")
 include("dvars.jl")
 

@@ -1,6 +1,8 @@
 using Test
 using VariogramAnalysis
 using DataFrames
+using Surrogates      # activates the dvars_sensitivities extension
+using BlackBoxOptim   # activates the dvars_sensitivities_robust extension
 using QuasiMonteCarlo
 
 @testset "D-VARS Analysis" begin
@@ -27,20 +29,28 @@ using QuasiMonteCarlo
         y = y_sample
     )
 
-    # c. Run the D-VARS analysis
-    sens, ratios, phis, v = dvars_sensitivities(df_ishigami, :y, Hj=1.0)
+    @testset "Kriging (Surrogates extension)" begin
+        sens, ratios, phis, v = dvars_sensitivities(df_ishigami, :y, Hj=1.0)
 
-    # d. Print and check the results
-    println("\n--- D-VARS Results ---")
-    println("Output Variance: ", round(v, digits=4))
-    println("Optimized Hyperparameters (phi): ", round.(phis, digits=4))
-    println("Sensitivity Indices (Gamma): ", round.(sens, digits=4))
-    println("Sensitivity Ratios (%): ", round.(ratios .* 100, digits=2))
+        @test length(sens) == d
+        @test length(ratios) == d
+        @test length(phis) == d
+        @test isapprox(sum(ratios), 1.0, atol=1e-9)
+        @test all(ratios .>= 0)
+    end
 
-    @test length(sens) == d
-    @test length(ratios) == d
-    @test length(phis) == d
-    @test isapprox(sum(ratios), 1.0, atol=1e-9)
-    @test all(ratios .>= 0)
+    @testset "Robust DE (BlackBoxOptim extension)" begin
+        sens, ratios, thetas, v = dvars_sensitivities_robust(df_ishigami, :y, Hj=1.0)
 
+        @test length(sens) == d
+        @test length(ratios) == d
+        @test length(thetas) == d
+        @test isapprox(sum(ratios), 1.0, atol=1e-9)
+        @test all(ratios .>= 0)
+    end
+
+    @testset "stub errors mention the missing packages" begin
+        @test_throws ErrorException dvars_sensitivities(1, :y)
+        @test_throws ErrorException dvars_sensitivities_robust(1, :y)
+    end
 end

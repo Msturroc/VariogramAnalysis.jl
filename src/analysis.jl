@@ -29,11 +29,25 @@ function _get_param_bounds(parameters::OrderedDict)
     return xmin, xmax
 end
 
+"""
+Build an index from (star_id, dim_id) to the positions in `info` belonging to
+that group, so the analysis loops avoid rescanning `info` for every star/dim
+combination. `groups[star][dim + 1]` holds the indices for dimension `dim`,
+with `dim == 0` being the star centre.
+"""
+function _index_info(info::Vector, N::Int, d::Int)
+    groups = [[Int[] for _ in 0:d] for _ in 1:N]
+    for (idx, p) in enumerate(info)
+        push!(groups[p.star_id][p.dim_id + 1], idx)
+    end
+    return groups
+end
+
 
 """
-    vars_analyse(...) - CORRECTED
+    vars_analyse(...)
 
-Standard VARS analysis. Pairing logic now matches python's step-based approach.
+Standard VARS analysis. Pairing logic matches python's step-based approach.
 """
 function vars_analyse(Y::Vector, info::Vector{NamedTuple{(:star_id, :dim_id, :step_id, :h), Tuple{Int, Int, Int, Float64}}}, N::Int, d::Int, delta_h::Float64)
     VY = var(Y)
@@ -41,16 +55,19 @@ function vars_analyse(Y::Vector, info::Vector{NamedTuple{(:star_id, :dim_id, :st
         return (ST = zeros(d),)
     end
 
+    groups = _index_info(info, N, d)
+
     ST = zeros(d)
     for dim in 1:d
         gamma_sum, ecov_sum, stars_with_data = 0.0, 0.0, 0
 
         for star in 1:N
-            ray_indices = findall(p -> p.star_id == star && (p.dim_id == dim || p.dim_id == 0), info)
+            ray_only_indices = groups[star][dim + 1]
+            ray_indices = vcat(groups[star][1], ray_only_indices)
             if length(ray_indices) < 2 continue end
-            
+
             sort!(ray_indices, by = idx -> info[idx].step_id)
-            
+
             one_step_pairs = Tuple{Float64, Float64}[]
             for k in 1:(length(ray_indices) - 1)
                 idx1 = ray_indices[k]
@@ -66,8 +83,8 @@ function vars_analyse(Y::Vector, info::Vector{NamedTuple{(:star_id, :dim_id, :st
             p2 = [p[2] for p in one_step_pairs]
 
             gamma_i = 0.5 * mean((p1 .- p2).^2)
-            
-            y_ray_values = Y[findall(p -> p.star_id == star && p.dim_id == dim, info)]
+
+            y_ray_values = Y[ray_only_indices]
             mu_star = isempty(y_ray_values) ? 0.0 : mean(y_ray_values)
 
             ecov_i = mean((p1 .- mu_star) .* (p2 .- mu_star))
@@ -84,9 +101,9 @@ end
 
 
 """
-    gvars_analyse(...) - FINAL VERSION
+    gvars_analyse(...)
 
-Replicates the Python tool's complex binning logic for G-VARS analysis.
+Replicates the Python tool's binning logic for G-VARS analysis.
 """
 function gvars_analyse(Y::Vector, X::Matrix, info::Vector{NamedTuple{(:star_id, :dim_id, :step_id, :h), Tuple{Int, Int, Int, Float64}}}, N::Int, d::Int, delta_h::Float64, parameters::OrderedDict)
     VY = var(Y)
@@ -97,12 +114,15 @@ function gvars_analyse(Y::Vector, X::Matrix, info::Vector{NamedTuple{(:star_id, 
     xmin, xmax = _get_param_bounds(parameters)
     param_ranges = xmax .- xmin
 
+    groups = _index_info(info, N, d)
+
     ST = zeros(d)
     for dim in 1:d
         gamma_sum, ecov_sum, stars_with_data = 0.0, 0.0, 0
 
         for star in 1:N
-            ray_indices = findall(p -> p.star_id == star && (p.dim_id == dim || p.dim_id == 0), info)
+            ray_only_indices = groups[star][dim + 1]
+            ray_indices = vcat(groups[star][1], ray_only_indices)
             if length(ray_indices) < 2 continue end
 
             # Collect pairs that fall into the delta_h bin based on normalized distance
@@ -111,7 +131,7 @@ function gvars_analyse(Y::Vector, X::Matrix, info::Vector{NamedTuple{(:star_id, 
                 # Calculate normalized distance in the original parameter space
                 dist = abs(X[dim, idx1] - X[dim, idx2])
                 norm_dist = param_ranges[dim] > 1e-9 ? dist / param_ranges[dim] : 0.0
-                
+
                 # Python's binning logic: bin index is floor(norm_dist / delta_h)
                 # The target bin for ST is the first one, corresponding to h=delta_h.
                 # The python code's binning is a bit tricky, but this logic should be equivalent
@@ -127,8 +147,8 @@ function gvars_analyse(Y::Vector, X::Matrix, info::Vector{NamedTuple{(:star_id, 
             p2 = [p[2] for p in binned_pairs]
 
             gamma_i = 0.5 * mean((p1 .- p2).^2)
-            
-            y_ray_values = Y[findall(p -> p.star_id == star && p.dim_id == dim, info)]
+
+            y_ray_values = Y[ray_only_indices]
             mu_star = isempty(y_ray_values) ? 0.0 : mean(y_ray_values)
 
             ecov_i = mean((p1 .- mu_star) .* (p2 .- mu_star))

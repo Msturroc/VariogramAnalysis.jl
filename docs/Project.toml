@@ -1,0 +1,6 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+VariogramAnalysis = "07dc4704-23df-41f7-aa80-c1ad3d8f3e52"
+
+[compat]
+Documenter = "1"

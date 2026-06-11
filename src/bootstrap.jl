@@ -1,4 +1,4 @@
-# src/bootstrap.jl (MODIFIED)
+# src/bootstrap.jl
 
 module VARSBootstrap
 
@@ -20,7 +20,7 @@ function bootstrap_st!(compute_st, Y::Vector, X::Matrix, X_norm::Matrix, info::V
                        N::Int, d::Int, delta_h::Float64;
                        num_boot::Int=100, ci_level::Float64=0.90, seed::Int=1234)
 
-    Random.seed!(seed)
+    rng = Random.MersenneTwister(seed)
 
     star_to_indices = Dict{Int, Vector{Int}}()
     for (idx, meta) in enumerate(info)
@@ -36,7 +36,7 @@ function bootstrap_st!(compute_st, Y::Vector, X::Matrix, X_norm::Matrix, info::V
     high_q = 1 - low_q
 
     for b in 1:num_boot
-        boot_star_ids = rand(1:N, N)
+        boot_star_ids = rand(rng, 1:N, N)
 
         boot_indices = Int[]
         for sid in boot_star_ids
@@ -44,7 +44,7 @@ function bootstrap_st!(compute_st, Y::Vector, X::Matrix, X_norm::Matrix, info::V
         end
 
         boot_Y = Y[boot_indices]
-        boot_X = X[:, boot_indices] # <-- ADDED THIS LINE
+        boot_X = X[:, boot_indices]
         boot_Xn = X_norm[:, boot_indices]
 
         boot_info = similar(info, length(boot_indices))
@@ -59,7 +59,7 @@ function bootstrap_st!(compute_st, Y::Vector, X::Matrix, X_norm::Matrix, info::V
         end
 
         # Compute ST on bootstrap resample
-        res = compute_st(boot_Y, boot_X, boot_Xn, boot_info, N, d, delta_h) # <-- MODIFIED THIS LINE
+        res = compute_st(boot_Y, boot_X, boot_Xn, boot_info, N, d, delta_h)
         st_boot[b, :] = res.ST
     end
 
@@ -74,8 +74,6 @@ function bootstrap_st!(compute_st, Y::Vector, X::Matrix, X_norm::Matrix, info::V
     return (st_point=st_point, st_boot=st_boot, st_ci=st_ci)
 end
 
-# --- rank_from_bootstrap and group_factors remain unchanged ---
-# (You can keep your existing versions of these two functions)
 """
     rank_from_bootstrap(...)
 """

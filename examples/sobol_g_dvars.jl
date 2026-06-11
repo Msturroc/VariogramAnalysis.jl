@@ -1,9 +1,60 @@
 using VariogramAnalysis
 using DataFrames
+using Surrogates       # activates the dvars_sensitivities extension
+using BlackBoxOptim    # activates the dvars_sensitivities_robust extension
+using SurrogatesPolyChaos
 using QuasiMonteCarlo
 using Printf
 using Statistics
 using PyCall
+
+# --- PCE comparison helpers (previously VariogramAnalysis.pce_sensitivities) ---
+
+function _compute_pce_st_indices(pce)
+    coeffs = pce.coeff
+    multiidx = pce.orthopolys.ind
+    d = size(multiidx, 2)
+
+    varY_pce = sum(coeffs[2:end].^2)
+    if varY_pce < 1e-12
+        return zeros(d)
+    end
+
+    ST = zeros(d)
+    for k in 2:length(coeffs)
+        coeff_sq = coeffs[k]^2
+        vars_idx = findall(multiidx[k, :] .> 0)
+        if !isempty(vars_idx)
+            for i in vars_idx
+                ST[i] += coeff_sq
+            end
+        end
+    end
+    return ST ./ varY_pce
+end
+
+"""
+    pce_sensitivities(X_pce, Y_pce, lb, ub)
+
+Calculates Sobol' indices using Polynomial Chaos Expansion from a given dataset.
+"""
+function pce_sensitivities(X_pce::AbstractMatrix, Y_pce::AbstractVector, lb::Vector{Float64}, ub::Vector{Float64})
+    println("\n--- Running Julia PCE Analysis ---")
+    d = size(X_pce, 1)
+    println("PCE using $(size(X_pce, 2)) samples...")
+
+    poly_degree = 2
+
+    xpoints = [collect(X_pce[:, i]) for i in 1:size(X_pce, 2)]
+
+    orthos = SurrogatesPolyChaos.MultiOrthoPoly([SurrogatesPolyChaos.GaussOrthoPoly(poly_degree) for _ in 1:d], poly_degree)
+    pce = SurrogatesPolyChaos.PolynomialChaosSurrogate(xpoints, Y_pce, lb, ub, orthopolys=orthos)
+
+    ST_pce = _compute_pce_st_indices(pce)
+
+    # Normalize the final ratios to sum to 1 for comparison with other methods
+    return ST_pce ./ sum(ST_pce)
+end
 
 # --- Model and Analytical Solution Definition (unchanged) ---
 function sobol_g_batch(X, a)
@@ -55,7 +106,7 @@ function run_dvars_benchmark()
         ratios_jl_robust = VariogramAnalysis.dvars_sensitivities_robust(df_data, :y)[2]
         
         # Pass the generated X and y matrices directly to the PCE function
-        ratios_pce = VariogramAnalysis.pce_sensitivities(X_sample, y_sample, lb, ub)
+        ratios_pce = pce_sensitivities(X_sample, y_sample, lb, ub)
         
         # Python Analysis (also uses the same data via df_data)
         ratios_py = fill(NaN, d)

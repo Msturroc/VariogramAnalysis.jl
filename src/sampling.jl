@@ -8,19 +8,19 @@ Helper function to ensure a matrix is symmetric and positive definite.
 function _ensure_pos_def(mat::AbstractMatrix, tol=1e-8)
 
     E = eigen(Symmetric(mat))
-    
+
     new_eigenvalues = max.(E.values, tol)
-    
+
     # Reconstruct the matrix
     new_mat = E.vectors * Diagonal(new_eigenvalues) * E.vectors' # Use adjoint instead of inv for stability
-    
+
     # Rescale to ensure the diagonal is all 1s
     D = Diagonal(1 ./ sqrt.(diag(new_mat)))
     corrected_mat_almost_symm = D * new_mat * D
-    
+
     # Enforce perfect symmetry to avoid floating point errors
     corrected_mat = (corrected_mat_almost_symm + corrected_mat_almost_symm') / 2
-    
+
     return corrected_mat
 end
 
@@ -31,16 +31,15 @@ end
 Generates the sample matrix and info for standard VARS (uncorrelated).
 Returns X_norm (in [0,1]^d) and the info vector.
 """
-function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64; 
-                               sampler_type::String="lhs", 
+function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64;
+                               sampler_type::String="lhs",
                                ray_logic::Symbol=:relative,
                                seed::Union{Nothing, Int}=nothing)
+    d = length(parameters)
     if N == 0
         # Handle the edge case where no star centers are requested.
-        return (Matrix{Float64}(undef, d, 0), [])
+        return (Matrix{Float64}(undef, d, 0), NamedTuple{(:star_id, :dim_id, :step_id, :h), Tuple{Int, Int, Int, Float64}}[])
     end
-    d = length(parameters)
-
 
     local sampler
     if sampler_type == "lhs"
@@ -52,28 +51,29 @@ function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64
         end
     elseif sampler_type == "sobol_shift"
         if !isnothing(seed)
-            Random.seed!(seed)
+            rng = Random.MersenneTwister(seed)
+            sampler = SobolSample(QuasiMonteCarlo.Shift(rng))
+        else
+            sampler = SobolSample(QuasiMonteCarlo.Shift())
         end
-        sampler = SobolSample(QuasiMonteCarlo.Shift())
     else
         error("Unsupported sampler_type: '$sampler_type'. Please use 'lhs' or 'sobol_shift'.")
     end
-    
+
     centres = QuasiMonteCarlo.sample(N, d, sampler)
-    
+
     point_vectors = Vector{Float64}[]
     point_info = NamedTuple{(:star_id, :dim_id, :step_id, :h), Tuple{Int, Int, Int, Float64}}[]
 
-     for i in 1:N
+    for i in 1:N
         centre = centres[:, i]
         push!(point_vectors, centre)
         push!(point_info, (star_id=i, dim_id=0, step_id=0, h=0.0))
 
         for j in 1:d
             c_dim = centre[j]
-            
-            if ray_logic == :relative
 
+            if ray_logic == :relative
                 max_steps = floor(Int, 1 / delta_h)
                 for step in 1:max_steps
                     h = step * delta_h
@@ -89,7 +89,8 @@ function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64
                     end
                 end
             elseif ray_logic == :shifted_grid
-                # Your original, more accurate implementation
+                # Rays follow a fixed grid of pitch delta_h, shifted so that the
+                # centre lies on a grid line; this keeps cross-section spacing exact.
                 traj_values = filter(x -> x != c_dim, unique(vcat(c_dim % delta_h : delta_h : 1.0, c_dim % delta_h : -delta_h : 0.0)))
                 for traj_val in traj_values
                     new_point = copy(centre)
@@ -103,7 +104,6 @@ function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64
             else
                 error("Unsupported ray_logic: '$ray_logic'. Please use :relative or :shifted_grid.")
             end
-            # --- END OF NEW LOGIC ---
         end
     end
 
@@ -119,11 +119,9 @@ the conditional sampling logic from the original Python implementation.
 """
 function generate_gvars_samples(parameters::OrderedDict, N::Int, corr_mat::AbstractMatrix, num_dir_samples::Int, delta_h::Float64;
                                 seed::Union{Nothing, Int}=nothing, use_fictive_corr::Bool=true, sampler_type::String="sobol")
-    
+
     d = length(parameters)
-    if !isnothing(seed)
-        Random.seed!(seed)
-    end
+    rng = isnothing(seed) ? Random.default_rng() : Random.MersenneTwister(seed)
 
     # 1. Compute Fictive Correlation Matrix
     fictive_corr_raw = use_fictive_corr ? map_to_fictive_corr(parameters, corr_mat) : corr_mat
@@ -131,17 +129,17 @@ function generate_gvars_samples(parameters::OrderedDict, N::Int, corr_mat::Abstr
 
     # 2. Generate Correlated Standard Normal Star Centres
     sampler = if sampler_type == "lhs" || sampler_type == "plhs"
-        LatinHypercubeSample()
+        LatinHypercubeSample(rng)
     elseif sampler_type == "sobol"
         SobolSample()
     else
         error("Unsupported sampler type: $sampler_type")
     end
-    
+
     uniform_centres = QuasiMonteCarlo.sample(N, d, sampler)
     u_clamped = clamp.(uniform_centres, 1e-15, 1.0 - 1e-15)
     y_centres = quantile.(Normal(0, 1), u_clamped)
-    
+
     C = cholesky(fictive_corr).L
     z_centres = C * y_centres # Result is d x N
 
@@ -154,7 +152,7 @@ function generate_gvars_samples(parameters::OrderedDict, N::Int, corr_mat::Abstr
         Σ_ii = fictive_corr[i, i]
         Σ_inoti = fictive_corr[i:i, noti]
         Σ_notinoti_inv = inv(fictive_corr[noti, noti])
-        
+
         cond_var = Σ_ii - (Σ_inoti * Σ_notinoti_inv * Σ_inoti')[1]
         cond_std_devs[i] = sqrt(max(0, cond_var))
         cond_mean_factors[i] = Σ_inoti * Σ_notinoti_inv
@@ -169,14 +167,14 @@ function generate_gvars_samples(parameters::OrderedDict, N::Int, corr_mat::Abstr
     # For each dimension, generate all its rays across all star centres
     for i in 1:d
         noti = setdiff(1:d, i)
-        
+
         # Calculate conditional mean for each star centre
         # z_centres[noti, :] gives a (d-1) x N matrix
         cond_means = (cond_mean_factors[i] * z_centres[noti, :])' # Result is N x 1
-        
+
         # Generate random numbers for the rays
-        stnrm_base = randn(N, num_dir_samples) # N x num_dir_samples
-        
+        stnrm_base = randn(rng, N, num_dir_samples) # N x num_dir_samples
+
         # Create the conditional samples for dimension i
         z_conditional_i = cond_means .+ stnrm_base .* cond_std_devs[i] # N x num_dir_samples
 
@@ -186,7 +184,7 @@ function generate_gvars_samples(parameters::OrderedDict, N::Int, corr_mat::Abstr
         for s in 1:num_dir_samples
             start_idx = (s - 1) * N + 1
             end_idx = s * N
-            
+
             # Copy the centres as the base
             z_ray_points[:, start_idx:end_idx] = z_centres
             # Overwrite the i-th dimension with the conditional samples

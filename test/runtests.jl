@@ -1,23 +1,25 @@
 using Test
 
+# Pure-Julia test suite. Validation against the Python varstool implementation
+# lives in test/python_validation/ and is run separately (see its README.md).
 @testset "VariogramAnalysis.jl" begin
-    # First, include the helper function so it's defined for the tests that follow.
-    println("Including test helpers...")
-    include("test_helpers.jl")
-
-    # Now, run the actual tests. Each will use the helper to manage the Python state.
-    println("\nRunning Ishigami comparison tests...")
-    @testset "Ishigami Comparison" begin
-        include("ishigami_comparison_test.jl")
+    @testset "Sampling" begin
+        include("sampling_test.jl")
     end
 
-    println("\nRunning Sobol-G comparison tests...")
-    @testset "Sobol-G Comparison" begin
-        include("sobol_g_multiple_dimensions_test.jl")
+    @testset "VARS Accuracy" begin
+        include("vars_accuracy_test.jl")
     end
 
-    println("\nRunning D-VARS tests...")
-    @testset "D-VARS Tests" begin
+    @testset "G-VARS" begin
+        include("gvars_test.jl")
+    end
+
+    @testset "Bootstrap" begin
+        include("bootstrap_test.jl")
+    end
+
+    @testset "D-VARS" begin
         include("dvars_test.jl")
     end
 end
