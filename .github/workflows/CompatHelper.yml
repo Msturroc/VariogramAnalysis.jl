@@ -20,7 +20,7 @@ jobs:
           version: '1'
         if: steps.julia_in_path.outcome != 'success'
       - name: Use Julia cache
-        uses: julia-actions/cache@v2
+        uses: julia-actions/cache@v3
       - name: Pkg.add("CompatHelper")
         run: julia -e 'import Pkg; Pkg.add("CompatHelper")'
       - name: CompatHelper.main()
