@@ -17,6 +17,12 @@ Calculates D-VARS global sensitivity indices using a Kriging surrogate model
 from Surrogates.jl for hyperparameter optimization. This version is useful for
 comparison against other surrogate-based methods.
 
+All columns of `df` — including the output — are min-max normalised to
+`[0, 1]` before fitting, so the returned `sensitivities` and `variance` are in
+units of the normalised output; the `ratios` are scale-free.
+
+Returns `(sensitivities, ratios, theta, variance)`.
+
 Requires `using DataFrames, Surrogates` to activate the implementation.
 """
 function dvars_sensitivities(args...; kwargs...)
@@ -30,6 +36,12 @@ end
 Calculates D-VARS global sensitivity indices using maximum-likelihood
 estimation of a squared-exponential kernel via differential evolution.
 This is the recommended method for accuracy and stability.
+
+All columns of `df` — including the output — are min-max normalised to
+`[0, 1]` before fitting, so the returned `sensitivities` and `variance` are in
+units of the normalised output; the `ratios` are scale-free.
+
+Returns `(sensitivities, ratios, theta, variance)`.
 
 Requires `using DataFrames, BlackBoxOptim` to activate the implementation.
 """

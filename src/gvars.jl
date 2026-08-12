@@ -9,7 +9,14 @@ using LinearAlgebra
 const NORMAL_0_1 = Normal(0, 1)
 
 """
-    rx_to_rn(...)
+    rx_to_rn(dist_pair, params1, params2, rx_pair)
+
+Map a correlation coefficient `rx_pair` of the underlying bivariate standard
+normal (the Gaussian copula) to the Pearson correlation it induces between
+the two target marginals described by `params1` and `params2`.
+
+The cross-moment `E[X₁X₂]` is evaluated by adaptive cubature over `[-8, 8]²`.
+Returns `0.0` when either marginal is degenerate (zero standard deviation).
 """
 function rx_to_rn(dist_pair::Tuple{String, String}, params1::NamedTuple, params2::NamedTuple, rx_pair::Real)
     dist1, μ1, σ1 = _get_distribution_and_stats(params1)
@@ -35,9 +42,8 @@ function rx_to_rn(dist_pair::Tuple{String, String}, params1::NamedTuple, params2
         return isnan(result) ? 0.0 : result
     end
 
-    # --- CRITICAL FIX: Added maxevals to prevent hangs ---
-    # This forces the integrator to stop after a reasonable number of evaluations,
-    # preventing the infinite loops on difficult integrands.
+    # maxevals bounds the integrator on difficult integrands that otherwise
+    # take effectively unbounded time to reach rtol.
     integral_val, _ = hcubature(integrand, [-8.0, -8.0], [8.0, 8.0], rtol=1e-6, maxevals=100000)
     
     rn = (integral_val - μ1 * μ2) / (σ1 * σ2)
@@ -46,7 +52,13 @@ function rx_to_rn(dist_pair::Tuple{String, String}, params1::NamedTuple, params2
 end
 
 """
-    rn_to_rx(...)
+    rn_to_rx(dist_pair, params1, params2, rn_pair)
+
+Inverse of [`rx_to_rn`](@ref): find, by bisection on `[-1, 1]`, the
+normal-space correlation that induces the target Pearson correlation
+`rn_pair` between the two marginals. Exact zeros and `±1` are returned
+unchanged. If root finding fails, `rn_pair` itself is returned as a fallback
+and an `@error` message is logged.
 """
 function rn_to_rx(dist_pair::Tuple{String, String}, params1::NamedTuple, params2::NamedTuple, rn_pair::Real)
     if isapprox(abs(rn_pair), 1.0, atol=1e-9) return sign(rn_pair) * 1.0 end
@@ -64,7 +76,13 @@ function rn_to_rx(dist_pair::Tuple{String, String}, params1::NamedTuple, params2
 end
 
 """
-    map_to_fictive_corr(...)
+    map_to_fictive_corr(parameters::OrderedDict, corr_mat::AbstractMatrix)
+
+Build the "fictive" (normal-space) correlation matrix used by G-VARS: each
+off-diagonal entry of `corr_mat` — the desired correlation between the actual
+parameters — is mapped through [`rn_to_rx`](@ref), so that sampling
+correlated standard normals with the fictive matrix and transforming them to
+the target marginals reproduces `corr_mat`.
 """
 function map_to_fictive_corr(parameters::OrderedDict, corr_mat::AbstractMatrix{<:Real})
     d = size(corr_mat, 1)
@@ -85,7 +103,12 @@ function map_to_fictive_corr(parameters::OrderedDict, corr_mat::AbstractMatrix{<
 end
 
 """
-    normal_to_original_dist(...)
+    normal_to_original_dist(norm_vectors::AbstractMatrix, parameters::OrderedDict)
+
+Transform standard-normal samples to the parameter distributions via the
+probability integral transform (standard-normal CDF followed by each
+marginal's quantile function). `norm_vectors` has one column per parameter;
+returns a matrix of the same shape in the original parameter space.
 """
 function normal_to_original_dist(norm_vectors::AbstractMatrix{<:Real}, parameters::OrderedDict)
     d = size(norm_vectors, 2)

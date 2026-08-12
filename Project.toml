@@ -27,6 +27,7 @@ VariogramAnalysisBlackBoxOptimExt = ["BlackBoxOptim", "DataFrames"]
 VariogramAnalysisSurrogatesExt = ["DataFrames", "Surrogates"]
 
 [compat]
+Aqua = "0.8"
 BlackBoxOptim = "0.6.3"
 Combinatorics = "1.0"
 DataFrames = "1.7"
@@ -45,6 +46,7 @@ Test = "1.10"
 julia = "1.10"
 
 [extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 BlackBoxOptim = "a134a8b2-14d6-55f6-9291-3336d3ab0209"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 QuasiMonteCarlo = "8a4e6c94-4038-4cdc-81c3-7e6ffdb2a71b"
@@ -52,4 +54,4 @@ Surrogates = "6fc51010-71bc-11e9-0e15-a3fcc6593c49"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["BlackBoxOptim", "DataFrames", "QuasiMonteCarlo", "Surrogates", "Test"]
+test = ["Aqua", "BlackBoxOptim", "DataFrames", "QuasiMonteCarlo", "Surrogates", "Test"]

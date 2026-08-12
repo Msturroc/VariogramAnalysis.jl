@@ -3,6 +3,10 @@ using Test
 # Pure-Julia test suite. Validation against the Python varstool implementation
 # lives in test/python_validation/ and is run separately (see its README.md).
 @testset "VariogramAnalysis.jl" begin
+    @testset "Aqua" begin
+        include("aqua_test.jl")
+    end
+
     @testset "Sampling" begin
         include("sampling_test.jl")
     end

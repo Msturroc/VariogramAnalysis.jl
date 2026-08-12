@@ -15,6 +15,12 @@ Resample stars with replacement and recompute ST for each replicate.
 
 `compute_st` must be a callable with the signature:
   `compute_st(Y_b, X_b, X_norm_b, info_b, N, d, delta_h) -> (ST=::Vector)`
+
+Returns `(st_point, st_boot, st_ci)`: the point estimate on the original
+design, the `num_boot × d` matrix of replicate estimates, and per-factor
+percentile confidence intervals at `ci_level`.
+
+Despite the `!` in its name, this function does not mutate its arguments.
 """
 function bootstrap_st!(compute_st, Y::Vector, X::Matrix, X_norm::Matrix, info::Vector,
                        N::Int, d::Int, delta_h::Float64;
@@ -75,7 +81,16 @@ function bootstrap_st!(compute_st, Y::Vector, X::Matrix, X_norm::Matrix, info::V
 end
 
 """
-    rank_from_bootstrap(...)
+    rank_from_bootstrap(st_boot::Matrix, param_names::Vector{String})
+
+Summarise factor rankings across bootstrap replicates: in every row of
+`st_boot` (`num_boot × d`) each factor is ranked by its ST value
+(rank 1 = largest).
+
+Returns `(rank_mode, rank_agreement, rank_counts)`: the most frequent rank of
+each factor, the fraction of replicates agreeing with that rank, and the full
+count table where `rank_counts[r][f]` is the number of replicates in which
+factor `f` attained rank `r`.
 """
 function rank_from_bootstrap(st_boot::Matrix{Float64}, param_names::Vector{String})
     B, d = size(st_boot)
@@ -111,7 +126,17 @@ function rank_from_bootstrap(st_boot::Matrix{Float64}, param_names::Vector{Strin
 end
 
 """
-    group_factors(...)
+    group_factors(st_boot::Matrix, param_names::Vector{String};
+                  tol::Float64=1e-2, num_groups::Int=2)
+
+Group factors whose median bootstrap ST values are indistinguishable: factors
+are sorted by median ST and a new group starts whenever consecutive medians
+differ by more than `tol`. If that yields more than `num_groups` groups, the
+smallest gaps are merged until `num_groups` remain.
+
+Returns `(groups, group_map)` where `groups[i]` is the group index of factor
+`i` (group 1 holds the highest ST values) and `group_map` maps each group
+index to the corresponding entries of `param_names`.
 """
 function group_factors(st_boot::Matrix{Float64}, param_names::Vector{String};
                        tol::Float64=1e-2, num_groups::Int=2)

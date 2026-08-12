@@ -36,6 +36,8 @@ function calc_L_cholesky(theta::Vector{Float64}, X::Matrix{Float64}, Y::Vector{F
         L = m * log(Y_minus_mu' * alpha) + logdetR
         return isfinite(L) ? L : 1e12
     catch e
+        # Numerical failures mean "bad hyperparameters"; anything else is a real bug.
+        e isa Union{PosDefException, SingularException, DomainError} || rethrow()
         return 1e12
     end
 end

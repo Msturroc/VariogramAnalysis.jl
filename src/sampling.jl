@@ -26,10 +26,27 @@ end
 
 
 """
-    generate_vars_samples(...)
+    generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64;
+                          sampler_type="lhs", ray_logic=:relative, seed=nothing)
 
-Generates the sample matrix and info for standard VARS (uncorrelated).
-Returns X_norm (in [0,1]^d) and the info vector.
+Generate the star-based design of experiments for standard (uncorrelated) VARS.
+
+`N` star centres are drawn in the unit hypercube with the chosen sampler
+(`"lhs"` or `"sobol_shift"`), and from every centre a ray of points with pitch
+`delta_h` is laid out along each of the `d = length(parameters)` dimensions.
+`ray_logic` controls how the rays are constructed:
+
+- `:relative` — steps of `delta_h` outwards from the centre value.
+- `:shifted_grid` — points on a fixed grid of pitch `delta_h`, shifted so the
+  centre lies on a grid line; all pairwise distances along a ray are then
+  exact multiples of `delta_h`.
+
+Pass `seed` for a reproducible design; the global RNG is left untouched.
+
+Returns `(X_norm, info)` where `X_norm` is a `d × n` matrix of points in
+`[0, 1]^d` and `info` is a vector of `(star_id, dim_id, step_id, h)` named
+tuples, one per column. Centres have `dim_id == 0`; ray points record the
+dimension they vary along and their signed step count from the centre.
 """
 function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64;
                                sampler_type::String="lhs",
@@ -112,10 +129,29 @@ function generate_vars_samples(parameters::OrderedDict, N::Int, delta_h::Float64
 end
 
 """
-    generate_gvars_samples(...) - FULL IMPLEMENTATION
+    generate_gvars_samples(parameters::OrderedDict, N::Int, corr_mat::AbstractMatrix,
+                           num_dir_samples::Int, delta_h::Float64;
+                           seed=nothing, use_fictive_corr=true, sampler_type="sobol")
 
-Generates the sample matrix X and info for G-VARS, faithfully replicating
-the conditional sampling logic from the original Python implementation.
+Generate the design of experiments for G-VARS (correlated inputs), replicating
+the conditional sampling logic of the original Python `varstool` implementation.
+
+Star centres are drawn as correlated standard normals via a Cholesky factor of
+the (fictive) correlation matrix and mapped to the target marginals by the
+inverse-CDF transform. For each dimension, `num_dir_samples` ray points per
+star are drawn from the conditional normal distribution of that dimension
+given the others.
+
+When `use_fictive_corr` is true, `corr_mat` is interpreted as the desired
+correlation between the actual parameters and is first mapped to the
+normal-space "fictive" correlation with [`map_to_fictive_corr`](@ref);
+otherwise `corr_mat` is used directly in normal space. Either way the matrix
+is nudged to the nearest positive-definite correlation matrix if needed.
+
+Returns `(X, info)` where `X` is a `d × N * (1 + d * num_dir_samples)` matrix
+of samples in the original parameter space. In `info`, `step_id` holds the
+index of the directional sample (rays have no ordered steps here) and `h` is
+`NaN`.
 """
 function generate_gvars_samples(parameters::OrderedDict, N::Int, corr_mat::AbstractMatrix, num_dir_samples::Int, delta_h::Float64;
                                 seed::Union{Nothing, Int}=nothing, use_fictive_corr::Bool=true, sampler_type::String="sobol")
